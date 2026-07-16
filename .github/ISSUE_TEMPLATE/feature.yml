@@ -1,0 +1,39 @@
+name: Solicitud de funcionalidad
+description: Propón una nueva funcionalidad o mejora para FlipMirror
+title: "[Feature]: "
+labels:
+  - feat
+body:
+  - type: textarea
+    id: problema
+    attributes:
+      label: Problema / necesidad
+      description: ¿Qué problema o necesidad motiva esta solicitud?
+      placeholder: Como usuario, necesito...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solucion-propuesta
+    attributes:
+      label: Solución propuesta
+      description: Describe la solución que te gustaría ver implementada.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternativas
+    attributes:
+      label: Alternativas consideradas
+      description: ¿Qué otras soluciones o enfoques evaluaste?
+    validations:
+      required: false
+
+  - type: input
+    id: sprint-objetivo
+    attributes:
+      label: Sprint objetivo
+      description: Sprint en el que se planea abordar esta funcionalidad (si se conoce).
+      placeholder: "Ej: Sprint 4"
+    validations:
+      required: false

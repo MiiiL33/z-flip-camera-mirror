@@ -21,6 +21,7 @@ captures/
 *.jks
 *.keystore
 
-# Contexto local del proyecto (no versionado)
+# Contexto y herramientas locales del proyecto (no versionado)
 docs/
 CLAUDE.md
+deploy.sh
