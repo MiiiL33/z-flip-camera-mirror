@@ -1,0 +1,39 @@
+name: Spike / investigación técnica
+description: Propón una investigación acotada en el tiempo para responder una pregunta técnica
+title: "[Spike]: "
+labels:
+  - spike
+body:
+  - type: textarea
+    id: pregunta
+    attributes:
+      label: Pregunta a responder
+      description: ¿Qué pregunta técnica o de producto debe responder este spike?
+    validations:
+      required: true
+
+  - type: input
+    id: time-box
+    attributes:
+      label: Time-box (en días)
+      description: Tiempo máximo dedicado a esta investigación.
+      placeholder: "Ej: 2"
+    validations:
+      required: true
+
+  - type: textarea
+    id: criterio-exito-fracaso
+    attributes:
+      label: Criterio de éxito / fracaso
+      description: ¿Cómo sabremos si el spike tuvo éxito o si debe descartarse el enfoque?
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidencia-esperada
+    attributes:
+      label: Evidencia esperada
+      description: Qué evidencia se entregará al finalizar (video, ADR, prototipo, etc.).
+      placeholder: "Ej: video corto de la prueba en el dispositivo, ADR con la decisión tomada"
+    validations:
+      required: true
