@@ -1,0 +1,58 @@
+name: Reporte de bug
+description: Reporta un comportamiento incorrecto o inesperado en FlipMirror
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: textarea
+    id: descripcion
+    attributes:
+      label: Descripción
+      description: Describe el problema de forma clara y concisa.
+      placeholder: ¿Qué está pasando?
+    validations:
+      required: true
+
+  - type: textarea
+    id: pasos
+    attributes:
+      label: Pasos para reproducir
+      description: Enumera los pasos necesarios para reproducir el comportamiento.
+      placeholder: |
+        1. Abrir la app...
+        2. Plegar el dispositivo hasta...
+        3. Ver el error...
+    validations:
+      required: true
+
+  - type: textarea
+    id: comportamiento-esperado
+    attributes:
+      label: Comportamiento esperado
+      description: ¿Qué esperabas que ocurriera?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: dispositivo
+    attributes:
+      label: Dispositivo / versión de One UI
+      description: Selecciona el dispositivo (y versión de One UI si la conoces) donde ocurrió el problema.
+      options:
+        - Flip 6
+        - Flip 7 FE
+        - Flip 7
+        - Fold 7
+        - Emulador
+        - Otro
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Pega aquí cualquier log relevante (logcat, stack trace, etc.). Se formateará automáticamente como código.
+      render: shell
+    validations:
+      required: false
