@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">FlipMirror</string>
+    <string name="camera_permission_denied">Se necesita permiso de cámara para usar el visor.</string>
+</resources>

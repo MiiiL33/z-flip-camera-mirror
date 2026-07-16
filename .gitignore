@@ -1,0 +1,26 @@
+# Gradle
+.gradle/
+build/
+app/build/
+
+# Kotlin 2.x (directorio de sesión del Kotlin Gradle Plugin)
+.kotlin/
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+
+# macOS
+.DS_Store
+
+# Keystores (nunca commitear firmas)
+*.jks
+*.keystore
+
+# Contexto local del proyecto (no versionado)
+docs/
+CLAUDE.md
