@@ -1,4 +1,38 @@
 <resources>
     <string name="app_name">FlipMirror</string>
     <string name="camera_permission_denied">Se necesita permiso de cámara para usar el visor.</string>
+
+    <!-- Laboratorio de spikes -->
+    <string name="spike_lab_label">FlipMirror Spikes</string>
+    <string name="spike_section_displays">Displays</string>
+    <string name="spike_section_overlay">Overlay</string>
+    <string name="spike_section_camera">Cámara en uso</string>
+    <string name="spike_refresh">Actualizar</string>
+    <string name="spike_fold_waiting">Esperando datos de plegado...</string>
+    <string name="spike_fold_none">Sin FoldingFeature: dispositivo no plegable o postura no reportada.</string>
+    <string name="spike_overlay_on_display">Overlay en display %1$d</string>
+    <string name="spike_remove_overlays">Quitar overlays</string>
+    <string name="spike_overlay_none">Sin overlays activos.</string>
+    <string name="spike_overlay_permission_needed">Concede el permiso de superposición y vuelve a pulsar el botón.</string>
+    <string name="spike_overlay_text">FlipMirror overlay en display %1$d\n%2$d s</string>
+    <string name="spike_overlay_added">Overlay creado en display %1$d.</string>
+    <string name="spike_overlay_error">Error con el overlay en display %1$d: %2$s</string>
+    <string name="spike_overlays_removed">Overlays retirados: %1$d.</string>
+    <string name="spike_overlay_display_null">getDisplay(%1$d) devolvió null: display oculto para esta app o ya no disponible.</string>
+    <string name="spike_overlay_no_permission">Overlay en display %1$d bloqueado: falta el permiso de superposición.</string>
+    <string name="spike_diag_default">displays (default): %1$s</string>
+    <string name="spike_diag_presentation">getDisplays(PRESENTATION): %1$s</string>
+    <string name="spike_diag_get_display">getDisplay(%1$d): %2$s</string>
+    <string name="spike_diag_empty_list">lista vacía</string>
+    <string name="spike_diag_display_null">null (oculto para esta app)</string>
+    <string name="spike_watch_start">Iniciar vigilancia</string>
+    <string name="spike_watch_stop">Detener</string>
+    <string name="spike_watch_channel_name">Vigilancia de cámara (spike)</string>
+    <string name="spike_watch_notification_title">FlipMirror: vigilancia de cámara</string>
+    <string name="spike_camera_free">Cámara libre</string>
+    <string name="spike_camera_in_use">Cámara en uso (id %1$s)</string>
+    <string name="spike_camera_log_empty">Sin eventos de cámara todavía.</string>
+    <string name="spike_camera_event_available">libre</string>
+    <string name="spike_camera_event_unavailable">EN USO</string>
+    <string name="spike_notifications_denied">Sin permiso de notificaciones: el servicio corre igualmente pero su notificación no será visible.</string>
 </resources>
