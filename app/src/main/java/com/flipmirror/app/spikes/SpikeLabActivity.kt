@@ -13,6 +13,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.util.Log
 import android.util.TypedValue
 import android.view.Display
 import android.view.Gravity
@@ -49,6 +50,16 @@ import java.util.Locale
  * 2. Overlay: ventanas TYPE_APPLICATION_OVERLAY sobre cada display detectado.
  * 3. Cámara en uso: AvailabilityCallback propio mientras la activity está
  *    visible, más el foreground service [SpikeCameraWatchService].
+ *
+ * Además admite órdenes por intent (pensado para adb con el teléfono cerrado,
+ * ver [SpikeIntentCommand]):
+ * - extra int "overlay_display": intenta el overlay en ese display id llamando
+ *   directamente a displayManager.getDisplay(id), sin depender de que la
+ *   enumeración lo liste (One UI oculta el display exterior a apps normales).
+ * - extra boolean "dump_displays": vuelca el diagnóstico completo de displays.
+ *
+ * Todo diagnóstico y todo resultado de overlay se vuelca a logcat con el tag
+ * [LOG_TAG] (una línea por dato, prefijo estable para grep) además de la UI.
  */
 class SpikeLabActivity : ComponentActivity() {
     private lateinit var displayManager: DisplayManager
@@ -111,6 +122,15 @@ class SpikeLabActivity : ComponentActivity() {
         setContentView(buildUi())
         observeFoldingFeatures()
         refreshDisplays()
+        handleSpikeCommand(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // launchMode singleTask: cada am start con extras reutiliza esta
+        // instancia y la orden llega aquí en vez de a un onCreate nuevo.
+        setIntent(intent)
+        handleSpikeCommand(intent)
     }
 
     override fun onStart() {
@@ -133,6 +153,34 @@ class SpikeLabActivity : ComponentActivity() {
         removeAllOverlays()
         super.onDestroy()
     }
+
+    // region Órdenes por intent (adb)
+
+    private fun handleSpikeCommand(intent: Intent?) {
+        val command =
+            SpikeIntentCommand.fromRawExtras(
+                overlayDisplay =
+                    intent?.getIntExtra(
+                        SpikeIntentCommand.EXTRA_OVERLAY_DISPLAY,
+                        SpikeIntentCommand.NO_OVERLAY_REQUESTED,
+                    ) ?: SpikeIntentCommand.NO_OVERLAY_REQUESTED,
+                dumpDisplays =
+                    intent?.getBooleanExtra(SpikeIntentCommand.EXTRA_DUMP_DISPLAYS, false) ?: false,
+            )
+        if (command.isEmpty) return
+        val requestedDisplay = command.overlayDisplayId ?: SpikeIntentCommand.NO_OVERLAY_REQUESTED
+        logSpike("intent overlay_display=$requestedDisplay dump_displays=${command.dumpDisplays}")
+        if (command.dumpDisplays) {
+            refreshDisplays()
+        }
+        command.overlayDisplayId?.let { showOverlayOnDisplay(it) }
+    }
+
+    private fun logSpike(message: String) {
+        Log.i(LOG_TAG, message)
+    }
+
+    // endregion
 
     // region UI
 
@@ -207,10 +255,81 @@ class SpikeLabActivity : ComponentActivity() {
     // region Spike 1: displays y plegado
 
     private fun refreshDisplays() {
-        val displays = displayManager.displays
-        displaysInfoView.text = displays.joinToString("\n\n") { describeDisplay(it) }
-        rebuildOverlayButtons(displays)
+        val defaultDisplays = displayManager.displays
+        val presentationDisplays =
+            displayManager.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)
+        // Consulta directa por id: One UI puede ocultar el display exterior a
+        // la enumeración pero seguir resolviéndolo (o no: el null es hallazgo).
+        val outerDisplay = displayManager.getDisplay(OUTER_DISPLAY_ID)
+        val visibleDisplays =
+            (defaultDisplays + presentationDisplays + listOfNotNull(outerDisplay))
+                .distinctBy { it.displayId }
+
+        logDisplayDiagnostics(defaultDisplays, presentationDisplays, outerDisplay, visibleDisplays)
+        displaysInfoView.text =
+            buildDisplaysUiText(defaultDisplays, presentationDisplays, outerDisplay, visibleDisplays)
+        rebuildOverlayButtons(visibleDisplays)
     }
+
+    private fun logDisplayDiagnostics(
+        defaultDisplays: Array<Display>,
+        presentationDisplays: Array<Display>,
+        outerDisplay: Display?,
+        visibleDisplays: List<Display>,
+    ) {
+        logSpike("diag displays_default n=${defaultDisplays.size}")
+        defaultDisplays.forEach {
+            logSpike("diag displays_default id=${it.displayId} nombre=${it.name}")
+        }
+        logSpike("diag displays_presentation n=${presentationDisplays.size}")
+        presentationDisplays.forEach {
+            logSpike("diag displays_presentation id=${it.displayId} nombre=${it.name}")
+        }
+        if (outerDisplay == null) {
+            logSpike("diag getDisplay id=$OUTER_DISPLAY_ID resultado=null")
+        } else {
+            logSpike("diag getDisplay id=$OUTER_DISPLAY_ID resultado=ok nombre=${outerDisplay.name}")
+        }
+        visibleDisplays.forEach { logSpike(displayLogLine(it)) }
+    }
+
+    private fun displayLogLine(display: Display): String {
+        val mode = display.mode
+        return "diag display id=${display.displayId} nombre=${display.name} " +
+            "estado=${stateName(display.state)} " +
+            "tam=${mode.physicalWidth}x${mode.physicalHeight} " +
+            "flags=${flagNames(display.flags)}"
+    }
+
+    private fun buildDisplaysUiText(
+        defaultDisplays: Array<Display>,
+        presentationDisplays: Array<Display>,
+        outerDisplay: Display?,
+        visibleDisplays: List<Display>,
+    ): String {
+        val outerText =
+            if (outerDisplay == null) {
+                getString(R.string.spike_diag_display_null)
+            } else {
+                outerDisplay.name
+            }
+        return buildString {
+            appendLine(getString(R.string.spike_diag_default, summarizeDisplayList(defaultDisplays)))
+            appendLine(
+                getString(R.string.spike_diag_presentation, summarizeDisplayList(presentationDisplays)),
+            )
+            appendLine(getString(R.string.spike_diag_get_display, OUTER_DISPLAY_ID, outerText))
+            appendLine()
+            append(visibleDisplays.joinToString("\n\n") { describeDisplay(it) })
+        }
+    }
+
+    private fun summarizeDisplayList(displays: Array<Display>): String =
+        if (displays.isEmpty()) {
+            getString(R.string.spike_diag_empty_list)
+        } else {
+            displays.joinToString(", ") { "${it.displayId}=${it.name}" }
+        }
 
     private fun describeDisplay(display: Display): String {
         val mode = display.mode
@@ -280,7 +399,7 @@ class SpikeLabActivity : ComponentActivity() {
 
     // region Spike 2: overlays por display
 
-    private fun rebuildOverlayButtons(displays: Array<Display>) {
+    private fun rebuildOverlayButtons(displays: List<Display>) {
         overlayButtonsContainer.removeAllViews()
         displays.forEach { display ->
             overlayButtonsContainer.addView(
@@ -293,15 +412,20 @@ class SpikeLabActivity : ComponentActivity() {
 
     private fun showOverlayOnDisplay(displayId: Int) {
         if (!Settings.canDrawOverlays(this)) {
+            logSpike("overlay displayId=$displayId resultado=sin_permiso")
+            overlayStatusView.text = getString(R.string.spike_overlay_no_permission, displayId)
             Toast.makeText(this, R.string.spike_overlay_permission_needed, Toast.LENGTH_LONG).show()
             startActivity(
                 Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")),
             )
             return
         }
+        // Consulta directa por id, sin pasar por la enumeración: es la vía
+        // para llegar al display exterior que One UI oculta a las apps.
         val display = displayManager.getDisplay(displayId)
         if (display == null) {
-            overlayStatusView.text = getString(R.string.spike_display_gone, displayId)
+            logSpike("overlay displayId=$displayId resultado=display_null")
+            overlayStatusView.text = getString(R.string.spike_overlay_display_null, displayId)
             return
         }
         try {
@@ -342,9 +466,12 @@ class SpikeLabActivity : ComponentActivity() {
                 }
             uiHandler.post(ticker)
             activeOverlays.add(ActiveOverlay(windowManager, overlayView, ticker))
+            logSpike("overlay displayId=$displayId resultado=ok")
             overlayStatusView.text = getString(R.string.spike_overlay_added, displayId)
         } catch (e: Exception) {
-            // SecurityException, display inválido, etc: se muestra en vez de crashear.
+            // SecurityException, BadTokenException, display inválido, etc:
+            // se registra y se muestra en vez de crashear.
+            logSpike("overlay displayId=$displayId resultado=error excepcion=$e")
             overlayStatusView.text = getString(R.string.spike_overlay_error, displayId, e.toString())
         }
     }
@@ -429,5 +556,11 @@ class SpikeLabActivity : ComponentActivity() {
     companion object {
         /** Etiqueta de origen con la que la activity firma sus eventos en el log. */
         const val SOURCE = "act"
+
+        /** Tag de logcat para todo el diagnóstico: adb logcat -s FlipSpike. */
+        const val LOG_TAG = "FlipSpike"
+
+        /** Id lógico del display exterior en los Samsung Flip. */
+        const val OUTER_DISPLAY_ID = 1
     }
 }

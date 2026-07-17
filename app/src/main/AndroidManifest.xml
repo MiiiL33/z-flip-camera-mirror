@@ -26,11 +26,14 @@
             </intent-filter>
         </activity>
 
-        <!-- Laboratorio de spikes: entrada de launcher propia para no interferir con el visor. -->
+        <!-- Laboratorio de spikes: entrada de launcher propia para no interferir con el visor.
+             singleTask: los am start repetidos con extras llegan a onNewIntent
+             de la instancia viva en vez de apilar activities. -->
         <activity
             android:name=".spikes.SpikeLabActivity"
             android:exported="true"
             android:label="@string/spike_lab_label"
+            android:launchMode="singleTask"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|density">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
