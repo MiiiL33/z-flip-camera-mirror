@@ -57,6 +57,9 @@ import java.util.Locale
  *   directamente a displayManager.getDisplay(id), sin depender de que la
  *   enumeración lo liste (One UI oculta el display exterior a apps normales).
  * - extra boolean "dump_displays": vuelca el diagnóstico completo de displays.
+ * - extra string "camera_watch": "start" o "stop" para el foreground service
+ *   [SpikeCameraWatchService], que al no estar exportado no puede arrancarse
+ *   desde el shell en Android 16 (la orden entra por esta activity exportada).
  *
  * Todo diagnóstico y todo resultado de overlay se vuelca a logcat con el tag
  * [LOG_TAG] (una línea por dato, prefijo estable para grep) además de la UI.
@@ -157,6 +160,7 @@ class SpikeLabActivity : ComponentActivity() {
     // region Órdenes por intent (adb)
 
     private fun handleSpikeCommand(intent: Intent?) {
+        val rawCameraWatch = intent?.getStringExtra(SpikeIntentCommand.EXTRA_CAMERA_WATCH)
         val command =
             SpikeIntentCommand.fromRawExtras(
                 overlayDisplay =
@@ -166,14 +170,40 @@ class SpikeLabActivity : ComponentActivity() {
                     ) ?: SpikeIntentCommand.NO_OVERLAY_REQUESTED,
                 dumpDisplays =
                     intent?.getBooleanExtra(SpikeIntentCommand.EXTRA_DUMP_DISPLAYS, false) ?: false,
+                cameraWatch = rawCameraWatch,
             )
+        if (rawCameraWatch != null && command.cameraWatch == null) {
+            Log.w(LOG_TAG, "watch comando=$rawCameraWatch resultado=invalido")
+        }
         if (command.isEmpty) return
         val requestedDisplay = command.overlayDisplayId ?: SpikeIntentCommand.NO_OVERLAY_REQUESTED
-        logSpike("intent overlay_display=$requestedDisplay dump_displays=${command.dumpDisplays}")
+        logSpike(
+            "intent overlay_display=$requestedDisplay dump_displays=${command.dumpDisplays} " +
+                "camera_watch=${rawCameraWatch ?: "ninguno"}",
+        )
         if (command.dumpDisplays) {
             refreshDisplays()
         }
         command.overlayDisplayId?.let { showOverlayOnDisplay(it) }
+        command.cameraWatch?.let { runCameraWatchCommand(it) }
+    }
+
+    private fun runCameraWatchCommand(action: SpikeIntentCommand.CameraWatchAction) {
+        val comando = action.name.lowercase()
+        try {
+            when (action) {
+                // A diferencia del botón, no se pide POST_NOTIFICATIONS: con el
+                // teléfono cerrado nadie puede responder el diálogo y el service
+                // funciona igual sin notificación visible.
+                SpikeIntentCommand.CameraWatchAction.START -> startWatchService()
+                SpikeIntentCommand.CameraWatchAction.STOP -> stopWatchService()
+            }
+            logSpike("watch comando=$comando resultado=ok")
+        } catch (e: Exception) {
+            // ForegroundServiceStartNotAllowedException y similares: se registra
+            // en vez de crashear, igual que el resto de la instrumentación.
+            logSpike("watch comando=$comando resultado=error excepcion=$e")
+        }
     }
 
     private fun logSpike(message: String) {

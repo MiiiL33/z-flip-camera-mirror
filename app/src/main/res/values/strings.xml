@@ -35,4 +35,20 @@
     <string name="spike_camera_event_available">libre</string>
     <string name="spike_camera_event_unavailable">EN USO</string>
     <string name="spike_notifications_denied">Sin permiso de notificaciones: el servicio corre igualmente pero su notificación no será visible.</string>
+
+    <!-- Spike 3b: espejo de pantalla (MediaProjection) -->
+    <string name="spike_mirror_label">FlipMirror Espejo</string>
+    <string name="spike_mirror_title">Espejo de pantalla en la cover</string>
+    <string name="spike_mirror_start">Iniciar espejo en cover</string>
+    <string name="spike_mirror_stop">Detener</string>
+    <string name="spike_mirror_status_idle">Espejo detenido. Pulsa iniciar: el sistema pedirá el consentimiento de captura (requiere un toque humano en cada sesión).</string>
+    <string name="spike_mirror_status_waiting_consent">Esperando el consentimiento de captura de pantalla...</string>
+    <string name="spike_mirror_status_denied">Captura rechazada: sin consentimiento no hay espejo.</string>
+    <string name="spike_mirror_status_started">Servicio de espejo iniciado. Detalle en logcat, tag FlipSpike.</string>
+    <string name="spike_mirror_status_stopped">Orden de detener enviada al servicio.</string>
+    <string name="spike_mirror_channel_name">Espejo de pantalla (spike)</string>
+    <string name="spike_mirror_notification_title">FlipMirror: espejo de pantalla</string>
+    <string name="spike_mirror_notification_starting">Preparando la captura de la pantalla principal...</string>
+    <string name="spike_mirror_notification_text">Capturando la pantalla principal hacia el display %1$d.</string>
+    <string name="spike_mirror_notification_stop">Detener</string>
 </resources>
