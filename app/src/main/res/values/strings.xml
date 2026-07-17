@@ -18,7 +18,13 @@
     <string name="spike_overlay_added">Overlay creado en display %1$d.</string>
     <string name="spike_overlay_error">Error con el overlay en display %1$d: %2$s</string>
     <string name="spike_overlays_removed">Overlays retirados: %1$d.</string>
-    <string name="spike_display_gone">El display %1$d ya no está disponible.</string>
+    <string name="spike_overlay_display_null">getDisplay(%1$d) devolvió null: display oculto para esta app o ya no disponible.</string>
+    <string name="spike_overlay_no_permission">Overlay en display %1$d bloqueado: falta el permiso de superposición.</string>
+    <string name="spike_diag_default">displays (default): %1$s</string>
+    <string name="spike_diag_presentation">getDisplays(PRESENTATION): %1$s</string>
+    <string name="spike_diag_get_display">getDisplay(%1$d): %2$s</string>
+    <string name="spike_diag_empty_list">lista vacía</string>
+    <string name="spike_diag_display_null">null (oculto para esta app)</string>
     <string name="spike_watch_start">Iniciar vigilancia</string>
     <string name="spike_watch_stop">Detener</string>
     <string name="spike_watch_channel_name">Vigilancia de cámara (spike)</string>
