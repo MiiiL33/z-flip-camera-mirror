@@ -7,6 +7,7 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
 
     <uses-feature
         android:name="android.hardware.camera.any"
@@ -41,6 +42,22 @@
             </intent-filter>
         </activity>
 
+        <!-- Spike 3b: espejo de la pantalla principal en la cover.
+             Entrada de launcher propia; singleTask por el mismo motivo que el lab.
+             El diálogo de consentimiento de MediaProjection siempre requiere un
+             toque humano, incluso arrancando con el extra auto_start por adb. -->
+        <activity
+            android:name=".spikes.SpikeMirrorActivity"
+            android:exported="true"
+            android:label="@string/spike_mirror_label"
+            android:launchMode="singleTask"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|density">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
         <service
             android:name=".spikes.SpikeCameraWatchService"
             android:exported="false"
@@ -49,6 +66,11 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="camera-availability-monitor-spike" />
         </service>
+
+        <service
+            android:name=".spikes.SpikeMirrorService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection" />
 
     </application>
 
