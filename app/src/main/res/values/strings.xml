@@ -5,6 +5,10 @@
     <!-- Visor de producto (Sprint 1) -->
     <string name="viewfinder_permission_denied">Se necesita permiso de cámara para usar el visor.</string>
     <string name="viewfinder_camera_unavailable">Cámara no disponible. Puede estar en uso por otra app.</string>
+    <!-- Etiqueta del botón de encuadre: muestra el modo activo del preview. -->
+    <string name="viewfinder_frame_square">1:1</string>
+    <string name="viewfinder_frame_portrait">9:16</string>
+    <string name="viewfinder_frame_toggle_description">Cambiar el encuadre del preview entre 1:1 y 9:16</string>
 
     <!-- Laboratorio de spikes -->
     <string name="spike_lab_label">FlipMirror Spikes</string>

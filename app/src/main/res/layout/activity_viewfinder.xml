@@ -5,16 +5,50 @@
     android:layout_height="match_parent"
     android:background="@android:color/black">
 
-    <!-- Visor a pantalla completa. La cover del Flip es casi cuadrada
-         (720x748 en el Flip 5, 1048x948 en el Flip 7): fillCenter llena el
-         panel sin asumir el 16:9 vertical del teléfono abierto. La decisión de
-         encuadre 1:1 / 9:16 (pillarbox real vs. guías) llega en un PR posterior
-         del Sprint 1. -->
+    <!-- Preview centrado. Su tamaño (lado del cuadrado o rect 9:16) lo fija la
+         Activity con PreviewFraming según el modo, así el fondo negro del root
+         queda visible como barras laterales (pillarbox) en el modo 9:16. El
+         padre recorta al preview cuando este desborda (modo 1:1 que llena). El
+         scaleType fillCenter llena ese rect con la cámara sin deformar. Este
+         encuadre es SOLO de presentación: no toca la captura. -->
     <androidx.camera.view.PreviewView
         android:id="@+id/viewfinder_preview"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:layout_gravity="center"
         app:scaleType="fillCenter" />
+
+    <!-- Contenedor de controles. La Activity le aplica como padding los insets
+         del área segura (recorte de las cámaras + barras del sistema), de modo
+         que el botón nunca caiga sobre el cutout ni sobre la barra de
+         navegación. El preview hermano sigue llenando toda la cover, incluso
+         bajo el recorte; solo los controles respetan el área segura. -->
+    <FrameLayout
+        android:id="@+id/viewfinder_controls"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <!-- Botón compacto de encuadre. Va ARRIBA y centrado, la zona más
+             segura de la cover del Flip: abajo a la derecha están las cámaras
+             (recorte) y abajo a la izquierda los botones de navegación. Su
+             propio texto (1:1 / 9:16) es el indicador discreto del modo activo.
+             Tamaño pensado para la cover de ~3.4". -->
+        <Button
+            android:id="@+id/viewfinder_frame_toggle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|center_horizontal"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/preview_frame_toggle_background"
+            android:contentDescription="@string/viewfinder_frame_toggle_description"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:paddingHorizontal="18dp"
+            android:paddingVertical="8dp"
+            android:text="@string/viewfinder_frame_square"
+            android:textColor="@android:color/white"
+            android:textSize="15sp" />
+    </FrameLayout>
 
     <!-- Estados de error (permiso denegado, cámara no disponible). Oculto
          mientras el visor funciona. -->
