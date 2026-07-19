@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/black">
+
+    <!-- Visor a pantalla completa. La cover del Flip es casi cuadrada
+         (720x748 en el Flip 5, 1048x948 en el Flip 7): fillCenter llena el
+         panel sin asumir el 16:9 vertical del teléfono abierto. La decisión de
+         encuadre 1:1 / 9:16 (pillarbox real vs. guías) llega en un PR posterior
+         del Sprint 1. -->
+    <androidx.camera.view.PreviewView
+        android:id="@+id/viewfinder_preview"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:scaleType="fillCenter" />
+
+    <!-- Estados de error (permiso denegado, cámara no disponible). Oculto
+         mientras el visor funciona. -->
+    <TextView
+        android:id="@+id/viewfinder_status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:gravity="center"
+        android:padding="16dp"
+        android:textColor="@android:color/white"
+        android:textSize="16sp"
+        android:visibility="gone" />
+
+</FrameLayout>
