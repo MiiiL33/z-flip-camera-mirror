@@ -104,6 +104,13 @@ class ViewfinderActivity : ComponentActivity() {
     private var requestedLens: LensSelection.Lens = LensSelection.Lens.DEFAULT
     private var activeLens: LensSelection.Lens = LensSelection.Lens.DEFAULT
 
+    // Corrección de orientación (grados horarios) vigente para la lente activa,
+    // decidida por [PreviewOrientation] en cada bind. Se guarda para poder
+    // REAPLICARLA tras el reencuadre (resize del preview) y tras cada rebind de
+    // lente/postura, de modo que ni el toggle 1:1<->9:16 ni el plegado dejen la
+    // ultrawide invertida.
+    private var previewCorrectionDegrees = 0
+
     private val requestCameraPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             hasCameraPermission = granted
@@ -134,6 +141,17 @@ class ViewfinderActivity : ComponentActivity() {
 
         setContentView(R.layout.activity_viewfinder)
         previewView = findViewById(R.id.viewfinder_preview)
+        // Modo COMPATIBLE (TextureView) en vez del PERFORMANCE (SurfaceView) por
+        // defecto. Es la clave para que la corrección de orientación de la
+        // ultrawide se APLIQUE al contenido que se ve, no solo a la caja de la
+        // vista. En PERFORMANCE el preview vive en un surface aparte que compone
+        // el hardware, y rotar la View (previewView.rotation) NO gira ese
+        // surface: por eso la ultrawide seguía de cabeza pese a la corrección de
+        // 180. Con TextureView el preview se dibuja dentro de la jerarquía de
+        // vistas, así que la rotación de la View sí gira el contenido renderizado
+        // de forma confiable. Se fija antes de proveer el surface (antes del
+        // primer bind), que es cuando el modo debe estar decidido.
+        previewView.implementationMode = PreviewView.ImplementationMode.COMPATIBLE
         statusView = findViewById(R.id.viewfinder_status)
         frameToggle = findViewById(R.id.viewfinder_frame_toggle)
         lensToggle = findViewById(R.id.viewfinder_lens_toggle)
@@ -308,7 +326,8 @@ class ViewfinderActivity : ComponentActivity() {
                     lensOptions.wideCameraId?.let { sensorOrientations[it] },
                     lensOptions.ultrawideCameraId?.let { sensorOrientations[it] },
                 )
-            previewView.rotation = correction.toFloat()
+            previewCorrectionDegrees = correction
+            applyPreviewCorrection()
 
             Log.i(
                 LOG_TAG,
@@ -527,6 +546,25 @@ class ViewfinderActivity : ComponentActivity() {
             params.gravity = Gravity.CENTER
             previewView.layoutParams = params
         }
+        // El reencuadre solo cambia el TAMAÑO de la vista; la rotación de
+        // corrección es una propiedad aparte que no debería perderse al tocar los
+        // layoutParams. Aun así la reafirmamos acá para blindar el orden: tras
+        // cualquier resize del preview la ultrawide queda derecha en ambos
+        // encuadres (1:1 y 9:16). Rotamos 180 en torno al centro, así el
+        // bounding box no cambia y la imagen no se deforma ni se recorta distinto.
+        applyPreviewCorrection()
+    }
+
+    /**
+     * Aplica la corrección de orientación vigente ([previewCorrectionDegrees]) a
+     * la PreviewView. Se llama tras cada bind (que la recalcula) y tras cada
+     * reencuadre, para garantizar que ni el resize del preview ni el rebind de
+     * lente/postura pierdan la rotación de la ultrawide. Con la PreviewView en
+     * modo COMPATIBLE (TextureView) esta rotación de vista sí gira el contenido
+     * renderizado, no solo la caja.
+     */
+    private fun applyPreviewCorrection() {
+        previewView.rotation = previewCorrectionDegrees.toFloat()
     }
 
     private fun showStatus(message: String) {
