@@ -1,11 +1,15 @@
 package com.flipmirror.app.viewfinder
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.os.Bundle
 import android.util.Log
+import android.view.Gravity
 import android.view.View
+import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
@@ -35,18 +39,31 @@ import kotlinx.coroutines.launch
  * [com.flipmirror.app.spikes.SpikeLabActivity]) para reaccionar a los cambios de
  * postura sin quedar en negro ni crashear.
  *
+ * Suma el toggle de encuadre del preview (1:1 / 9:16). Es un asistente de
+ * ENCUADRE: el toggle solo cambia cómo se VE el preview en la cover, y está
+ * desacoplado de la captura. El encuadre es una decisión de PRESENTACIÓN a nivel
+ * de la vista ([PreviewFraming] redimensiona la [PreviewView] dentro de la
+ * cover), no un ViewPort ni un crop de CameraX. Así, cuando se sume ImageCapture
+ * en un PR futuro, la captura seguirá siendo nativa y completa (9:16 u otra),
+ * sin recortarse a lo que muestra la cover.
+ *
  * Fuera de alcance en este PR (llegan en PRs siguientes del Sprint 1): cambio de
- * lente wide/ultrawide, captura de foto (ImageCapture) y el toggle de encuadre
- * 1:1 / 9:16. El binding se arma con un [UseCaseGroup] justamente para poder
- * sumar esos casos de uso y un ViewPort después sin reescribir esta clase.
+ * lente wide/ultrawide y captura de foto (ImageCapture). El binding se arma con
+ * un [UseCaseGroup] justamente para poder sumar ese caso de uso después sin
+ * reescribir esta clase.
  */
 class ViewfinderActivity : ComponentActivity() {
     private lateinit var previewView: PreviewView
     private lateinit var statusView: TextView
+    private lateinit var frameToggle: Button
 
     private var cameraProvider: ProcessCameraProvider? = null
     private var hasCameraPermission = false
     private var currentPosture: FoldPosture? = null
+
+    // Modo de encuadre del preview. Solo cambia la presentación en la cover; no
+    // toca la captura. Puede preseleccionarse por un extra de intent (QA por adb).
+    private var previewMode: PreviewFraming.Mode = PreviewFraming.Mode.DEFAULT
 
     private val requestCameraPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -68,9 +85,39 @@ class ViewfinderActivity : ComponentActivity() {
         setContentView(R.layout.activity_viewfinder)
         previewView = findViewById(R.id.viewfinder_preview)
         statusView = findViewById(R.id.viewfinder_status)
+        frameToggle = findViewById(R.id.viewfinder_frame_toggle)
+
+        frameToggle.setOnClickListener { togglePreviewMode() }
+
+        // El tamaño real de la cover se conoce recién tras el layout, y puede
+        // cambiar al saltar de display (plegar/desplegar). Reaplicamos el
+        // encuadre cada vez que el contenedor se redimensiona.
+        val frameContainer = previewView.parent as View
+        frameContainer.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            applyPreviewFraming()
+        }
+
+        // Preselección del modo por adb para QA determinista, ej.:
+        // am start --display 1 -n .../.viewfinder.ViewfinderActivity \
+        //   --es preview_frame 9x16
+        // Un valor ausente o desconocido arranca en el modo por defecto (1:1).
+        setPreviewMode(PreviewFraming.Mode.fromExtra(intent?.getStringExtra(PreviewFraming.EXTRA_PREVIEW_FRAME)))
 
         observeFoldPosture()
         ensureCameraPermission()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // Un `am start` repetido con el visor ya vivo llega acá en vez de a
+        // onCreate. Aplicamos el modo solo si el intent trae el extra, para que
+        // QA por adb pueda alternar el encuadre sin force-stop y sin pisar el
+        // modo elegido a mano cuando el intent no lo especifica.
+        setIntent(intent)
+        val raw = intent.getStringExtra(PreviewFraming.EXTRA_PREVIEW_FRAME)
+        if (raw != null) {
+            setPreviewMode(PreviewFraming.Mode.fromExtra(raw))
+        }
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -80,6 +127,10 @@ class ViewfinderActivity : ComponentActivity() {
         // avisa acá. Rebindeamos para reengancharnos al surface/display actual
         // y no quedar en negro.
         bindCamera()
+        // El display pudo cambiar de tamaño (cover <-> principal): reajustamos
+        // el encuadre. El listener de layout lo reaplica igual cuando el
+        // contenedor se relayouta; esto solo acelera el caso inmediato.
+        applyPreviewFraming()
     }
 
     private fun ensureCameraPermission() {
@@ -172,6 +223,57 @@ class ViewfinderActivity : ComponentActivity() {
         // Al cambiar de postura el visor puede saltar entre displays (cover y
         // principal). Rebindeamos para reengancharnos al surface actual.
         bindCamera()
+    }
+
+    private fun togglePreviewMode() = setPreviewMode(previewMode.toggled())
+
+    /**
+     * Fija el modo de encuadre del preview: solo cambia la presentación en la
+     * cover, nunca la captura. Actualiza la etiqueta del botón y reajusta el
+     * rectángulo del preview. Loguea el modo para poder confirmar el toggle por
+     * adb en QA.
+     */
+    private fun setPreviewMode(mode: PreviewFraming.Mode) {
+        previewMode = mode
+        updateFrameToggleLabel()
+        applyPreviewFraming()
+        Log.i(LOG_TAG, "encuadre preview=$mode")
+    }
+
+    /** El texto del botón ES el indicador discreto del modo activo. */
+    private fun updateFrameToggleLabel() {
+        frameToggle.setText(
+            when (previewMode) {
+                PreviewFraming.Mode.SQUARE -> R.string.viewfinder_frame_square
+                PreviewFraming.Mode.PORTRAIT_9_16 -> R.string.viewfinder_frame_portrait
+            },
+        )
+    }
+
+    /**
+     * Redimensiona la [PreviewView] al rectángulo de presentación del modo
+     * actual, calculado con [PreviewFraming] sobre el tamaño real de la cover.
+     * Al ir centrada, el 9:16 deja barras laterales (pillarbox) del fondo negro
+     * y el 1:1 desborda y el padre lo recorta, llenando la cover. No rebindea la
+     * cámara: solo cambia cómo se ve el mismo surface, desacoplado de la captura.
+     */
+    private fun applyPreviewFraming() {
+        val container = previewView.parent as? View ?: return
+        val coverWidth = container.width
+        val coverHeight = container.height
+        if (coverWidth <= 0 || coverHeight <= 0) return
+
+        val frame = PreviewFraming.presentationFrame(previewMode, coverWidth, coverHeight)
+        val params = previewView.layoutParams as FrameLayout.LayoutParams
+        if (params.width != frame.width ||
+            params.height != frame.height ||
+            params.gravity != Gravity.CENTER
+        ) {
+            params.width = frame.width
+            params.height = frame.height
+            params.gravity = Gravity.CENTER
+            previewView.layoutParams = params
+        }
     }
 
     private fun showStatus(message: String) {
