@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.util.Log
 import android.view.Gravity
 import android.view.View
+import android.view.WindowManager
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.TextView
@@ -19,6 +20,9 @@ import androidx.camera.core.UseCaseGroup
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -82,10 +86,23 @@ class ViewfinderActivity : ComponentActivity() {
         setShowWhenLocked(true)
         setTurnScreenOn(true)
 
+        // Dibujamos de borde a borde y dejamos que el contenido pueda entrar
+        // bajo el recorte de las cámaras. Así el preview llena toda la cover;
+        // los controles, en cambio, se mantienen dentro del área segura vía los
+        // WindowInsets que aplicamos más abajo.
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.attributes =
+            window.attributes.apply {
+                layoutInDisplayCutoutMode =
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+            }
+
         setContentView(R.layout.activity_viewfinder)
         previewView = findViewById(R.id.viewfinder_preview)
         statusView = findViewById(R.id.viewfinder_status)
         frameToggle = findViewById(R.id.viewfinder_frame_toggle)
+
+        applyControlsInsets(findViewById(R.id.viewfinder_controls))
 
         frameToggle.setOnClickListener { togglePreviewMode() }
 
@@ -131,6 +148,29 @@ class ViewfinderActivity : ComponentActivity() {
         // el encuadre. El listener de layout lo reaplica igual cuando el
         // contenedor se relayouta; esto solo acelera el caso inmediato.
         applyPreviewFraming()
+    }
+
+    /**
+     * Empuja los controles (hoy solo el botón de encuadre) al área segura de la
+     * cover. Combina los insets de las barras del sistema (incluida la de
+     * navegación, abajo a la izquierda) con los del recorte de las cámaras
+     * (abajo a la derecha) y los aplica como padding del contenedor. El preview,
+     * que es hermano y no recibe este padding, sigue llenando toda la cover. Se
+     * loguean los insets detectados para poder verificarlos por adb en QA.
+     */
+    private fun applyControlsInsets(controls: View) {
+        ViewCompat.setOnApplyWindowInsetsListener(controls) { view, insets ->
+            val safe =
+                insets.getInsets(
+                    WindowInsetsCompat.Type.systemBars() or
+                        WindowInsetsCompat.Type.displayCutout(),
+                )
+            view.setPadding(safe.left, safe.top, safe.right, safe.bottom)
+            val cutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            Log.i(LOG_TAG, "insets seguros=$safe cutout=$cutout systemBars=$bars")
+            insets
+        }
     }
 
     private fun ensureCameraPermission() {
