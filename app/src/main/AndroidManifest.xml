@@ -17,8 +17,10 @@
         android:label="@string/app_name"
         android:theme="@style/Theme.FlipMirror">
 
+        <!-- Visor de producto (Sprint 1): es el LAUNCHER principal de la app.
+             Es la Activity que se fija a la cover screen vía Good Lock + MultiStar. -->
         <activity
-            android:name=".MainActivity"
+            android:name=".viewfinder.ViewfinderActivity"
             android:exported="true"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|density">
             <intent-filter>
@@ -27,36 +29,38 @@
             </intent-filter>
         </activity>
 
-        <!-- Laboratorio de spikes: entrada de launcher propia para no interferir con el visor.
-             singleTask: los am start repetidos con extras llegan a onNewIntent
-             de la instancia viva en vez de apilar activities. -->
+        <!-- Prototipo del Spike 2 (visor CameraX). Se conserva como referencia y
+             herramienta de QA; ya no es launcher (ese rol pasó al visor de
+             producto). Queda exported para poder lanzarlo por adb:
+             am start -n com.flipmirror.app/.MainActivity -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|density" />
+
+        <!-- Laboratorio de spikes. Se conserva como herramienta de QA; ya no es
+             launcher. Queda exported porque se maneja por intent desde adb con el
+             teléfono cerrado (am start con el extra string camera_watch en
+             start|stop); el shell no puede arrancar componentes no exportados.
+             singleTask: los am start repetidos con extras llegan a onNewIntent de
+             la instancia viva en vez de apilar activities. -->
         <activity
             android:name=".spikes.SpikeLabActivity"
             android:exported="true"
             android:label="@string/spike_lab_label"
             android:launchMode="singleTask"
-            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|density">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|density" />
 
-        <!-- Spike 3b: espejo de la pantalla principal en la cover.
-             Entrada de launcher propia; singleTask por el mismo motivo que el lab.
-             El diálogo de consentimiento de MediaProjection siempre requiere un
-             toque humano, incluso arrancando con el extra auto_start por adb. -->
+        <!-- Spike 3b: espejo de la pantalla principal en la cover. Se conserva como
+             herramienta de QA; ya no es launcher. Queda exported para lanzarlo por
+             adb; singleTask por el mismo motivo que el lab. El diálogo de
+             consentimiento de MediaProjection siempre requiere un toque humano. -->
         <activity
             android:name=".spikes.SpikeMirrorActivity"
             android:exported="true"
             android:label="@string/spike_mirror_label"
             android:launchMode="singleTask"
-            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|density">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|density" />
 
         <service
             android:name=".spikes.SpikeCameraWatchService"

@@ -2,6 +2,10 @@
     <string name="app_name">FlipMirror</string>
     <string name="camera_permission_denied">Se necesita permiso de cámara para usar el visor.</string>
 
+    <!-- Visor de producto (Sprint 1) -->
+    <string name="viewfinder_permission_denied">Se necesita permiso de cámara para usar el visor.</string>
+    <string name="viewfinder_camera_unavailable">Cámara no disponible. Puede estar en uso por otra app.</string>
+
     <!-- Laboratorio de spikes -->
     <string name="spike_lab_label">FlipMirror Spikes</string>
     <string name="spike_section_displays">Displays</string>
