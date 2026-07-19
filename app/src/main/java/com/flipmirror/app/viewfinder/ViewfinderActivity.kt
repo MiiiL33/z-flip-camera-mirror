@@ -8,6 +8,7 @@ import android.hardware.camera2.CameraCharacteristics
 import android.os.Bundle
 import android.util.Log
 import android.view.Gravity
+import android.view.Surface
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
@@ -61,7 +62,11 @@ import kotlinx.coroutines.launch
  * de lente y el toggle de encuadre son independientes y coexisten: el encuadre
  * es presentación de la vista y la lente es qué cámara física alimenta el
  * surface. Si el dispositivo no expone ultrawide, el toggle de lente se
- * deshabilita (degradación con gracia).
+ * deshabilita (degradación con gracia). Además corrige la ORIENTACION del
+ * preview de la ultrawide: en el Flip 5 esa lente entrega el buffer girado 180
+ * pese a declarar el mismo SENSOR_ORIENTATION que la wide, algo que CameraX no
+ * puede compensar solo; la corrección la decide la lógica pura
+ * [PreviewOrientation] a partir de las orientaciones reales de ambas lentes.
  *
  * Fuera de alcance en este PR (llega en un PR siguiente del Sprint 1): captura de
  * foto (ImageCapture). El binding se arma con un [UseCaseGroup] justamente para
@@ -85,6 +90,12 @@ class ViewfinderActivity : ComponentActivity() {
     // resuelve al tener el provider listo; arranca vacío para que el visor no
     // crashee si la enumeración falla.
     private var lensOptions: LensSelection.LensOptions = LensSelection.LensOptions(null, null)
+
+    // SENSOR_ORIENTATION (grados) por camera id, capturado al enumerar. Alimenta
+    // la corrección de orientación del preview ([PreviewOrientation]): en el
+    // Flip 5 la wide y la ultrawide declaran el mismo valor pese a que la
+    // ultrawide entrega el buffer girado 180, y CameraX no puede compensarlo solo.
+    private val sensorOrientations = mutableMapOf<String, Int>()
 
     // Lente pedida por el usuario o el intent (puede ser ULTRAWIDE aún antes de
     // saber si el equipo la tiene) y lente realmente bindeada (recortada a lo
@@ -256,8 +267,14 @@ class ViewfinderActivity : ComponentActivity() {
         val provider = cameraProvider ?: return
         if (!hasCameraPermission) return
         try {
+            // La rotación del display donde renderiza la Activity (la cover,
+            // display 1, con el equipo plegado). Se pasa como targetRotation del
+            // Preview para que CameraX + PreviewView calculen la transformación
+            // correcta POR cámara, en vez de asumir el display por defecto.
+            val displayRotation = display?.rotation ?: Surface.ROTATION_0
             val preview =
                 Preview.Builder()
+                    .setTargetRotation(displayRotation)
                     .build()
                     .also { it.setSurfaceProvider(previewView.surfaceProvider) }
 
@@ -270,12 +287,35 @@ class ViewfinderActivity : ComponentActivity() {
                     .build()
 
             provider.unbindAll()
-            provider.bindToLifecycle(
-                this,
-                selectorForLens(activeLens),
-                useCases,
+            val camera =
+                provider.bindToLifecycle(
+                    this,
+                    selectorForLens(activeLens),
+                    useCases,
+                )
+            val sensorRotation = camera.cameraInfo.sensorRotationDegrees
+
+            // Corrección de orientación del preview. El targetRotation de arriba
+            // deja derecha a la wide en cualquier rotación del display, pero NO
+            // alcanza para la ultrawide del Flip 5: declara el mismo
+            // SENSOR_ORIENTATION que la wide y aún así entrega el buffer girado
+            // 180, algo que CameraX no puede ver. [PreviewOrientation] decide,
+            // a partir de las orientaciones reales de ambas lentes, cuántos
+            // grados extra rotar la vista para dejar la lente activa derecha.
+            val correction =
+                PreviewOrientation.coverCorrectionDegrees(
+                    activeLens,
+                    lensOptions.wideCameraId?.let { sensorOrientations[it] },
+                    lensOptions.ultrawideCameraId?.let { sensorOrientations[it] },
+                )
+            previewView.rotation = correction.toFloat()
+
+            Log.i(
+                LOG_TAG,
+                "bind lente=$activeLens id=${lensOptions.cameraIdFor(activeLens)} " +
+                    "sensorRotationDegrees=$sensorRotation displayRotation=$displayRotation " +
+                    "correccionPreview=$correction",
             )
-            Log.i(LOG_TAG, "bind lente=$activeLens id=${lensOptions.cameraIdFor(activeLens)}")
             hideStatus()
         } catch (e: Exception) {
             // Cámara no disponible, en uso por otra app, o combinación de casos
@@ -388,6 +428,9 @@ class ViewfinderActivity : ComponentActivity() {
      */
     private fun detectLensOptions(provider: ProcessCameraProvider): LensSelection.LensOptions {
         val infos = provider.availableCameraInfos
+        // Se repuebla la orientación de sensor por cámara en cada enumeración
+        // (describeCamera la registra) para no arrastrar datos viejos.
+        sensorOrientations.clear()
         val descriptors = infos.mapNotNull { describeCamera(it) }
         val defaultBackId =
             try {
@@ -412,8 +455,10 @@ class ViewfinderActivity : ComponentActivity() {
     /**
      * Traduce una [CameraInfo] de CameraX a un [LensSelection.CameraDescriptor]
      * neutral. Aísla el interop Camera2 acá, para que la lógica de selección
-     * quede libre de tipos de Android. Devuelve null si la cámara no se pudo
-     * describir, para no romper la enumeración.
+     * quede libre de tipos de Android. De paso registra el SENSOR_ORIENTATION de
+     * la cámara en [sensorOrientations], que alimenta la corrección de
+     * orientación del preview. Devuelve null si la cámara no se pudo describir,
+     * para no romper la enumeración.
      */
     private fun describeCamera(info: CameraInfo): LensSelection.CameraDescriptor? =
         try {
@@ -426,9 +471,13 @@ class ViewfinderActivity : ComponentActivity() {
                     CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS,
                 )
             val minFocal = focals?.minOrNull() ?: Float.NaN
+            val sensorOrientation =
+                camera2Info.getCameraCharacteristic(CameraCharacteristics.SENSOR_ORIENTATION)
+            if (sensorOrientation != null) sensorOrientations[id] = sensorOrientation
             Log.i(
                 LOG_TAG,
-                "camara id=$id facing=$facing focalMin=$minFocal focals=${focals?.joinToString()}",
+                "camara id=$id facing=$facing focalMin=$minFocal " +
+                    "sensorOrientation=$sensorOrientation focals=${focals?.joinToString()}",
             )
             LensSelection.CameraDescriptor(id = id, minFocalLengthMm = minFocal, isBackFacing = isBack)
         } catch (e: Exception) {
