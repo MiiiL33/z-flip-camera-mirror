@@ -2,7 +2,7 @@
 
 Visor de cámara propio con filtros para la pantalla exterior (cover screen) del Samsung Galaxy Z Flip.
 
-**Estado actual:** Sprint 0: fundaciones y spikes de riesgo.
+**Estado actual:** Sprint 1 (visor MVP) en curso. Hecho: visor de producto base en la cover y toggle de encuadre del preview (1:1 / 9:16, asistencia de encuadre desacoplada de la captura). Pendiente: cambio de lente wide/ultrawide y captura de foto.
 
 **Repo remoto:** [`github.com/MiiiL33/z-flip-camera-mirror`](https://github.com/MiiiL33/z-flip-camera-mirror).
 

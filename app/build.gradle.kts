@@ -10,7 +10,7 @@ android {
 
     defaultConfig {
         applicationId = "com.flipmirror.app"
-        // Flip 6 es el dispositivo más antiguo soportado (Android 14 de fábrica)
+        // minSdk 34 (Android 14): el Flip 5 de QA corre Android 14 o superior
         minSdk = 34
         targetSdk = 35
         versionCode = 1
