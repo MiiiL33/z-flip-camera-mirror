@@ -16,25 +16,34 @@ package com.flipmirror.app.viewfinder
  * montadas igual. Es una peculiaridad de hardware que ninguna característica de
  * Camera2 expone.
  *
- * Por eso la corrección no puede derivarse de una "diferencia de
+ * Por eso la corrección del quirk no puede derivarse de una "diferencia de
  * SENSOR_ORIENTATION entre lentes" (esa diferencia es 0 en el Flip 5): se aplica
  * como una rotación extra a la vista del preview. La regla es data-driven, no un
  * simple "si es ultrawide, rotá 180":
  *
- *  - La WIDE es la referencia y se ve derecha: nunca se corrige (0 grados).
- *  - La ULTRAWIDE solo se corrige cuando su SENSOR_ORIENTATION es INDISTINGUIBLE
- *    del de la wide (mismo valor). Ese es justamente el caso en que CameraX no
- *    tiene con qué diferenciarlas y el buffer llega invertido: el residuo entre
- *    dos sensores traseros montados en oposición pero declarados iguales es
- *    exactamente 180.
+ *  - La WIDE es la referencia del quirk y sale derecha: no lleva corrección de
+ *    quirk (0 grados).
+ *  - La ULTRAWIDE solo se corrige por quirk cuando su SENSOR_ORIENTATION es
+ *    INDISTINGUIBLE del de la wide (mismo valor). Ese es justamente el caso en
+ *    que CameraX no tiene con qué diferenciarlas y el buffer llega invertido: el
+ *    residuo entre dos sensores traseros montados en oposición pero declarados
+ *    iguales es exactamente 180.
  *  - Si un dispositivo declarara orientaciones DISTINTAS para wide y ultrawide,
  *    CameraX ya las trata por separado y las deja derechas: en ese caso no se
- *    aplica corrección (0), para no invertir una ultrawide que ya venía bien.
- *  - Ante orientaciones desconocidas se es conservador y no se corrige (0).
+ *    aplica corrección de quirk (0), para no invertir una ultrawide que ya venía
+ *    bien.
+ *  - Ante orientaciones desconocidas se es conservador y no se corrige por quirk
+ *    (0).
  *
- * El objetivo es que ambas lentes se vean derechas en la cover, de forma
- * independiente del toggle de encuadre (que solo cambia el tamaño de la vista) y
- * del rebind por plegado.
+ * Sobre esa corrección de quirk (que deja ambas lentes derechas y alineadas
+ * entre sí) se suma una media vuelta base de la cover: con el teléfono plegado
+ * sobre la cover la cámara debe apuntar desde arriba para la selfie, así que las
+ * dos lentes se muestran a 180 grados del upright del framework. Ambas siguen
+ * consistentes entre sí; solo cambia el valor final de la corrección, no el
+ * mecanismo con que se aplica. Decisión de producto del 2026-07-19.
+ *
+ * Todo esto es independiente del toggle de encuadre (que solo cambia el tamaño
+ * de la vista) y del rebind por plegado.
  */
 object PreviewOrientation {
     // Residuo de rotación entre dos sensores traseros montados en oposición pero
@@ -42,9 +51,19 @@ object PreviewOrientation {
     // Flip 5). Media vuelta.
     private const val OPPOSED_SENSOR_CORRECTION = 180
 
+    // Media vuelta base de uso de la cover: con el teléfono plegado la cámara
+    // debe apuntar desde arriba para la selfie, así que ambas lentes se muestran
+    // a 180 grados del upright del framework. Se suma (módulo 360) a la
+    // corrección de quirk por lente. Decisión de producto del 2026-07-19.
+    private const val COVER_BASE_ROTATION_DEGREES = 180
+
     /**
      * Grados de rotación extra (0/90/180/270, sentido horario) a aplicar a la
-     * PreviewView para que la lente [activeLens] se vea derecha en la cover.
+     * PreviewView para la lente [activeLens] en la cover.
+     *
+     * Es la suma, módulo 360, de la corrección de quirk por lente (la que deja
+     * ambas lentes alineadas entre sí) y la media vuelta base de la cover
+     * ([COVER_BASE_ROTATION_DEGREES]).
      *
      * @param activeLens lente actualmente bindeada.
      * @param wideSensorOrientation SENSOR_ORIENTATION de la wide, o null si no se
@@ -57,7 +76,26 @@ object PreviewOrientation {
         wideSensorOrientation: Int?,
         ultrawideSensorOrientation: Int?,
     ): Int {
-        // La wide es la referencia derecha: nunca se corrige.
+        val quirkCorrection =
+            lensQuirkCorrectionDegrees(
+                activeLens,
+                wideSensorOrientation,
+                ultrawideSensorOrientation,
+            )
+        return (quirkCorrection + COVER_BASE_ROTATION_DEGREES) % 360
+    }
+
+    /**
+     * Corrección del quirk de hardware por lente, sin la media vuelta base de la
+     * cover. Deja ambas lentes derechas y alineadas entre sí (la wide como
+     * referencia); ver el detalle en la doc de la clase.
+     */
+    private fun lensQuirkCorrectionDegrees(
+        activeLens: LensSelection.Lens,
+        wideSensorOrientation: Int?,
+        ultrawideSensorOrientation: Int?,
+    ): Int {
+        // La wide es la referencia derecha: no lleva corrección de quirk.
         if (activeLens != LensSelection.Lens.ULTRAWIDE) return 0
 
         // Solo corregimos la ultrawide cuando su orientación es indistinguible de

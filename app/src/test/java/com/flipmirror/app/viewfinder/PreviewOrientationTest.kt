@@ -5,12 +5,16 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class PreviewOrientationTest {
+    // Recordatorio de la semántica: corrección_final = (quirk + 180 base) % 360.
+    // La media vuelta base de la cover deja ambas lentes a 180 del upright del
+    // framework, y siguen alineadas entre sí.
+
     @Test
-    fun laWideNuncaSeCorrigeEsLaReferenciaDerecha() {
-        // Aunque las orientaciones sean iguales, la wide es la lente de
-        // referencia y siempre se ve derecha: cero corrección.
+    fun laWideLlevaSoloLaMediaVueltaBaseDeLaCover() {
+        // La wide no tiene quirk (0), así que queda con la media vuelta base:
+        // (0 + 180) % 360 = 180. Apunta desde arriba para la selfie en la cover.
         assertEquals(
-            0,
+            180,
             PreviewOrientation.coverCorrectionDegrees(
                 activeLens = Lens.WIDE,
                 wideSensorOrientation = 90,
@@ -20,12 +24,12 @@ class PreviewOrientationTest {
     }
 
     @Test
-    fun laUltrawideConMismaOrientacionQueLaWideSeCorrige180() {
-        // Caso real del Flip 5: ambas traseras declaran SENSOR_ORIENTATION=90,
-        // pero la ultrawide entrega el buffer girado 180. CameraX no puede
-        // distinguirlas, así que se rota la vista media vuelta.
+    fun laUltrawideConMismaOrientacionQuedaAlineadaConLaWide() {
+        // Caso real del Flip 5: ambas traseras declaran SENSOR_ORIENTATION=90 y
+        // la ultrawide entrega el buffer girado 180 (quirk=180). Con la base:
+        // (180 + 180) % 360 = 0, que la deja a 180 del upright igual que la wide.
         assertEquals(
-            180,
+            0,
             PreviewOrientation.coverCorrectionDegrees(
                 activeLens = Lens.ULTRAWIDE,
                 wideSensorOrientation = 90,
@@ -35,12 +39,12 @@ class PreviewOrientationTest {
     }
 
     @Test
-    fun laUltrawideConOrientacionDistintaNoSeCorrigeCameraxYaLaTrata() {
-        // Si el dispositivo declara orientaciones distintas, CameraX las trata
-        // por separado y la ultrawide ya sale derecha: no se corrige, para no
-        // invertirla.
+    fun laUltrawideConOrientacionDistintaNoTieneQuirkSoloLaBase() {
+        // Si el dispositivo declara orientaciones distintas, CameraX ya trata la
+        // ultrawide por separado y no hay quirk (0). Queda con la media vuelta
+        // base: (0 + 180) % 360 = 180.
         assertEquals(
-            0,
+            180,
             PreviewOrientation.coverCorrectionDegrees(
                 activeLens = Lens.ULTRAWIDE,
                 wideSensorOrientation = 90,
@@ -50,9 +54,11 @@ class PreviewOrientationTest {
     }
 
     @Test
-    fun sinOrientacionesConocidasEsConservadorYNoCorrige() {
+    fun sinOrientacionesConocidasNoHayQuirkSoloLaBase() {
+        // Conservador ante orientaciones desconocidas: sin quirk (0), solo la
+        // media vuelta base: (0 + 180) % 360 = 180.
         assertEquals(
-            0,
+            180,
             PreviewOrientation.coverCorrectionDegrees(
                 activeLens = Lens.ULTRAWIDE,
                 wideSensorOrientation = null,
@@ -60,7 +66,7 @@ class PreviewOrientationTest {
             ),
         )
         assertEquals(
-            0,
+            180,
             PreviewOrientation.coverCorrectionDegrees(
                 activeLens = Lens.ULTRAWIDE,
                 wideSensorOrientation = 90,
