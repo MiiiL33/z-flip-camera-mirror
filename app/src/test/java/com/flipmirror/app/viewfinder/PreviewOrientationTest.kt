@@ -5,33 +5,22 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class PreviewOrientationTest {
-    // Recordatorio de la semántica: corrección_final = (quirk + 180 base) % 360.
-    // La media vuelta base de la cover deja ambas lentes a 180 del upright del
-    // framework, y siguen alineadas entre sí.
+    // Semántica: la corrección es sensible a la pantalla. La wide sale derecha (0)
+    // en cualquier pantalla. La ultrawide del Flip 5 tiene un quirk (entrega el
+    // buffer girado 180 declarando el mismo SENSOR_ORIENTATION que la wide) que
+    // solo se manifiesta en la cover: ahí lleva 180, en la principal 0.
+    //
+    // Tabla objetivo confirmada en dispositivo:
+    //   (cover, WIDE) -> 0   (cover, ULTRAWIDE) -> 180
+    //   (main,  WIDE) -> 0   (main,  ULTRAWIDE) -> 0
 
     @Test
-    fun laWideLlevaSoloLaMediaVueltaBaseDeLaCover() {
-        // La wide no tiene quirk (0), así que queda con la media vuelta base:
-        // (0 + 180) % 360 = 180. Apunta desde arriba para la selfie en la cover.
-        assertEquals(
-            180,
-            PreviewOrientation.coverCorrectionDegrees(
-                activeLens = Lens.WIDE,
-                wideSensorOrientation = 90,
-                ultrawideSensorOrientation = 90,
-            ),
-        )
-    }
-
-    @Test
-    fun laUltrawideConMismaOrientacionQuedaAlineadaConLaWide() {
-        // Caso real del Flip 5: ambas traseras declaran SENSOR_ORIENTATION=90 y
-        // la ultrawide entrega el buffer girado 180 (quirk=180). Con la base:
-        // (180 + 180) % 360 = 0, que la deja a 180 del upright igual que la wide.
+    fun laWideSaleDerechaEnLaCover() {
         assertEquals(
             0,
-            PreviewOrientation.coverCorrectionDegrees(
-                activeLens = Lens.ULTRAWIDE,
+            PreviewOrientation.correctionDegrees(
+                activeLens = Lens.WIDE,
+                isCoverScreen = true,
                 wideSensorOrientation = 90,
                 ultrawideSensorOrientation = 90,
             ),
@@ -39,14 +28,57 @@ class PreviewOrientationTest {
     }
 
     @Test
-    fun laUltrawideConOrientacionDistintaNoTieneQuirkSoloLaBase() {
-        // Si el dispositivo declara orientaciones distintas, CameraX ya trata la
-        // ultrawide por separado y no hay quirk (0). Queda con la media vuelta
-        // base: (0 + 180) % 360 = 180.
+    fun laWideSaleDerechaEnLaPantallaPrincipal() {
+        assertEquals(
+            0,
+            PreviewOrientation.correctionDegrees(
+                activeLens = Lens.WIDE,
+                isCoverScreen = false,
+                wideSensorOrientation = 90,
+                ultrawideSensorOrientation = 90,
+            ),
+        )
+    }
+
+    @Test
+    fun laUltrawideConQuirkSeCorrige180EnLaCover() {
+        // Caso real del Flip 5: ambas traseras declaran SENSOR_ORIENTATION=90 y la
+        // ultrawide entrega el buffer girado 180. En la cover se rota 180.
         assertEquals(
             180,
-            PreviewOrientation.coverCorrectionDegrees(
+            PreviewOrientation.correctionDegrees(
                 activeLens = Lens.ULTRAWIDE,
+                isCoverScreen = true,
+                wideSensorOrientation = 90,
+                ultrawideSensorOrientation = 90,
+            ),
+        )
+    }
+
+    @Test
+    fun laUltrawideConQuirkNoSeCorrigeEnLaPantallaPrincipal() {
+        // Mismo quirk declarado, pero en la principal la ultrawide ya sale
+        // derecha: no se aplica corrección (0).
+        assertEquals(
+            0,
+            PreviewOrientation.correctionDegrees(
+                activeLens = Lens.ULTRAWIDE,
+                isCoverScreen = false,
+                wideSensorOrientation = 90,
+                ultrawideSensorOrientation = 90,
+            ),
+        )
+    }
+
+    @Test
+    fun laUltrawideConOrientacionDistintaNoTieneQuirkNiEnLaCover() {
+        // Si el dispositivo declara orientaciones distintas, CameraX ya trata la
+        // ultrawide por separado y la deja derecha: sin quirk (0), ni en la cover.
+        assertEquals(
+            0,
+            PreviewOrientation.correctionDegrees(
+                activeLens = Lens.ULTRAWIDE,
+                isCoverScreen = true,
                 wideSensorOrientation = 90,
                 ultrawideSensorOrientation = 270,
             ),
@@ -54,21 +86,23 @@ class PreviewOrientationTest {
     }
 
     @Test
-    fun sinOrientacionesConocidasNoHayQuirkSoloLaBase() {
-        // Conservador ante orientaciones desconocidas: sin quirk (0), solo la
-        // media vuelta base: (0 + 180) % 360 = 180.
+    fun sinOrientacionesConocidasNoHayQuirkNiEnLaCover() {
+        // Conservador ante orientaciones desconocidas: sin quirk (0), aun en la
+        // cover, para no invertir un preview que podría venir bien.
         assertEquals(
-            180,
-            PreviewOrientation.coverCorrectionDegrees(
+            0,
+            PreviewOrientation.correctionDegrees(
                 activeLens = Lens.ULTRAWIDE,
+                isCoverScreen = true,
                 wideSensorOrientation = null,
                 ultrawideSensorOrientation = 90,
             ),
         )
         assertEquals(
-            180,
-            PreviewOrientation.coverCorrectionDegrees(
+            0,
+            PreviewOrientation.correctionDegrees(
                 activeLens = Lens.ULTRAWIDE,
+                isCoverScreen = true,
                 wideSensorOrientation = 90,
                 ultrawideSensorOrientation = null,
             ),
@@ -81,9 +115,11 @@ class PreviewOrientationTest {
         // 0 o 180, pero el rango se fija para que futuras variantes lo respeten.
         val valores =
             listOf(
-                PreviewOrientation.coverCorrectionDegrees(Lens.WIDE, 90, 90),
-                PreviewOrientation.coverCorrectionDegrees(Lens.ULTRAWIDE, 90, 90),
-                PreviewOrientation.coverCorrectionDegrees(Lens.ULTRAWIDE, 90, 270),
+                PreviewOrientation.correctionDegrees(Lens.WIDE, true, 90, 90),
+                PreviewOrientation.correctionDegrees(Lens.WIDE, false, 90, 90),
+                PreviewOrientation.correctionDegrees(Lens.ULTRAWIDE, true, 90, 90),
+                PreviewOrientation.correctionDegrees(Lens.ULTRAWIDE, false, 90, 90),
+                PreviewOrientation.correctionDegrees(Lens.ULTRAWIDE, true, 90, 270),
             )
         valores.forEach { assertEquals(0, it % 90) }
     }

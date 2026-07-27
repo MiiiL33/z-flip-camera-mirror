@@ -7,6 +7,7 @@ import android.content.res.Configuration
 import android.hardware.camera2.CameraCharacteristics
 import android.os.Bundle
 import android.util.Log
+import android.view.Display
 import android.view.Gravity
 import android.view.Surface
 import android.view.View
@@ -65,8 +66,12 @@ import kotlinx.coroutines.launch
  * deshabilita (degradación con gracia). Además corrige la ORIENTACION del
  * preview de la ultrawide: en el Flip 5 esa lente entrega el buffer girado 180
  * pese a declarar el mismo SENSOR_ORIENTATION que la wide, algo que CameraX no
- * puede compensar solo; la corrección la decide la lógica pura
- * [PreviewOrientation] a partir de las orientaciones reales de ambas lentes.
+ * puede compensar solo. La corrección es SENSIBLE A LA PANTALLA: ese quirk solo
+ * se manifiesta en la cover, así que la ultrawide se rota 180 ahí y 0 en la
+ * pantalla principal; la wide sale derecha (0) en ambas. La lógica pura
+ * [PreviewOrientation] decide los grados a partir de la pantalla actual (cover o
+ * principal) y las orientaciones reales de ambas lentes, y se recalcula en cada
+ * bind: al togglear lente y al plegar/desplegar (que salta de display).
  *
  * Fuera de alcance en este PR (llega en un PR siguiente del Sprint 1): captura de
  * foto (ImageCapture). El binding se arma con un [UseCaseGroup] justamente para
@@ -313,16 +318,25 @@ class ViewfinderActivity : ComponentActivity() {
                 )
             val sensorRotation = camera.cameraInfo.sensorRotationDegrees
 
-            // Corrección de orientación del preview. El targetRotation de arriba
-            // deja derecha a la wide en cualquier rotación del display, pero NO
-            // alcanza para la ultrawide del Flip 5: declara el mismo
-            // SENSOR_ORIENTATION que la wide y aún así entrega el buffer girado
-            // 180, algo que CameraX no puede ver. [PreviewOrientation] decide,
-            // a partir de las orientaciones reales de ambas lentes, cuántos
-            // grados extra rotar la vista para dejar la lente activa derecha.
+            // Pantalla donde renderiza la Activity AHORA. La cover del Flip es un
+            // display externo (id 1); la principal es el default (id 0). Al plegar
+            // o desplegar el visor salta de display y este bind lo recalcula, así
+            // que la corrección siempre usa la pantalla vigente. Es la fuente
+            // directa y sin carreras de "en qué pantalla está el preview".
+            val currentDisplayId = display?.displayId ?: Display.DEFAULT_DISPLAY
+            val isCoverScreen = currentDisplayId != Display.DEFAULT_DISPLAY
+
+            // Corrección de orientación del preview. Depende de la PANTALLA y de la
+            // lente: la wide sale derecha en ambas (0); la ultrawide del Flip 5
+            // entrega el buffer girado 180 (declara el mismo SENSOR_ORIENTATION que
+            // la wide, algo que CameraX no puede ver) y ese quirk solo se manifiesta
+            // en la cover, donde hay que rotarla 180; en la principal ya sale
+            // derecha (0). [PreviewOrientation] decide los grados a partir de la
+            // pantalla actual y las orientaciones reales de ambas lentes.
             val correction =
-                PreviewOrientation.coverCorrectionDegrees(
+                PreviewOrientation.correctionDegrees(
                     activeLens,
+                    isCoverScreen,
                     lensOptions.wideCameraId?.let { sensorOrientations[it] },
                     lensOptions.ultrawideCameraId?.let { sensorOrientations[it] },
                 )
@@ -333,6 +347,7 @@ class ViewfinderActivity : ComponentActivity() {
                 LOG_TAG,
                 "bind lente=$activeLens id=${lensOptions.cameraIdFor(activeLens)} " +
                     "sensorRotationDegrees=$sensorRotation displayRotation=$displayRotation " +
+                    "displayId=$currentDisplayId coverScreen=$isCoverScreen " +
                     "correccionPreview=$correction",
             )
             hideStatus()
@@ -549,9 +564,10 @@ class ViewfinderActivity : ComponentActivity() {
         // El reencuadre solo cambia el TAMAÑO de la vista; la rotación de
         // corrección es una propiedad aparte que no debería perderse al tocar los
         // layoutParams. Aun así la reafirmamos acá para blindar el orden: tras
-        // cualquier resize del preview la ultrawide queda derecha en ambos
-        // encuadres (1:1 y 9:16). Rotamos 180 en torno al centro, así el
-        // bounding box no cambia y la imagen no se deforma ni se recorta distinto.
+        // cualquier resize del preview la lente activa queda derecha en ambos
+        // encuadres (1:1 y 9:16). La corrección vigente es 0 o 180, siempre en
+        // torno al centro, así el bounding box no cambia y la imagen no se
+        // deforma ni se recorta distinto.
         applyPreviewCorrection()
     }
 
