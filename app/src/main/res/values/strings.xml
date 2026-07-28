@@ -9,6 +9,10 @@
     <string name="viewfinder_frame_square">1:1</string>
     <string name="viewfinder_frame_portrait">9:16</string>
     <string name="viewfinder_frame_toggle_description">Cambiar el encuadre del preview entre 1:1 y 9:16</string>
+    <!-- Etiqueta del botón de lente: muestra la lente trasera activa del preview. -->
+    <string name="viewfinder_lens_wide">W</string>
+    <string name="viewfinder_lens_ultrawide">UW</string>
+    <string name="viewfinder_lens_toggle_description">Cambiar la lente trasera entre principal (W) y ultra gran angular (UW)</string>
 
     <!-- Laboratorio de spikes -->
     <string name="spike_lab_label">FlipMirror Spikes</string>

@@ -48,6 +48,29 @@
             android:text="@string/viewfinder_frame_square"
             android:textColor="@android:color/white"
             android:textSize="15sp" />
+
+        <!-- Botón compacto de lente. Va ARRIBA a la IZQUIERDA, dentro de la misma
+             zona superior segura y sin encimarse con el botón de encuadre
+             (centrado). Reutiliza el mismo fondo tipo pastilla para ser
+             coherente. Su texto (W / UW) indica la lente activa. Se deshabilita
+             (semitransparente) si el dispositivo no expone una ultra gran
+             angular, degradando con gracia a solo wide. -->
+        <Button
+            android:id="@+id/viewfinder_lens_toggle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|start"
+            android:layout_marginTop="12dp"
+            android:layout_marginStart="12dp"
+            android:background="@drawable/preview_frame_toggle_background"
+            android:contentDescription="@string/viewfinder_lens_toggle_description"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:paddingHorizontal="18dp"
+            android:paddingVertical="8dp"
+            android:text="@string/viewfinder_lens_wide"
+            android:textColor="@android:color/white"
+            android:textSize="15sp" />
     </FrameLayout>
 
     <!-- Estados de error (permiso denegado, cámara no disponible). Oculto
